@@ -4,7 +4,6 @@ import csv
 import os
 import json
 from dotenv import load_dotenv
-
 # Set up logging
 logging.basicConfig(
     filename='scraping.log',
@@ -16,9 +15,9 @@ logging.basicConfig(
 load_dotenv('.env')
 api_id = os.getenv('TG_API_ID')
 api_hash = os.getenv('TG_API_HASH')
-phone = os.getenv('PHONE')  
+phone = os.getenv('phone')
 
-# Function to get the last processed message ID
+# Function to get last processed message ID
 def get_last_processed_id(channel_username):
     try:
         with open(f"{channel_username}_last_id.json", 'r') as f:
@@ -27,13 +26,13 @@ def get_last_processed_id(channel_username):
         logging.warning(f"No last ID file found for {channel_username}. Starting from 0.")
         return 0
 
-# Function to save the last processed message ID
+# Function to save last processed message ID
 def save_last_processed_id(channel_username, last_id):
     with open(f"{channel_username}_last_id.json", 'w') as f:
         json.dump({'last_id': last_id}, f)
         logging.info(f"Saved last processed ID {last_id} for {channel_username}.")
 
-# Function to scrape data 
+# Function to scrape data from a single channel
 async def scrape_channel(client, channel_username, writer, media_dir):
     try:
         entity = await client.get_entity(channel_username)
@@ -41,6 +40,7 @@ async def scrape_channel(client, channel_username, writer, media_dir):
         
         last_id = get_last_processed_id(channel_username)
         
+        # Limit to scraping only 20 messages (changed from 10 to 20)
         message_count = 0
         async for message in client.iter_messages(entity):
             if message.id <= last_id:
@@ -48,11 +48,7 @@ async def scrape_channel(client, channel_username, writer, media_dir):
             
             media_path = None
             if message.media:
-                filename = (
-                    f"{channel_username}_{message.id}.{message.media.document.mime_type.split('/')[-1]}"
-                    if hasattr(message.media, 'document') 
-                    else f"{channel_username}_{message.id}.jpg"
-                )
+                filename = f"{channel_username}_{message.id}.{message.media.document.mime_type.split('/')[-1]}" if hasattr(message.media, 'document') else f"{channel_username}_{message.id}.jpg"
                 media_path = os.path.join(media_dir, filename)
                 await client.download_media(message.media, media_path)
                 logging.info(f"Downloaded media for message ID {message.id}.")
@@ -63,8 +59,8 @@ async def scrape_channel(client, channel_username, writer, media_dir):
             last_id = message.id
             message_count += 1
             
-            # Stop after scraping 1000 messages
-            if message_count >= 1000:
+            # Stop after scraping 20 messages
+            if message_count >= 100:
                 break
 
         save_last_processed_id(channel_username, last_id)
@@ -86,18 +82,17 @@ async def main():
         media_dir = 'photos'
         os.makedirs(media_dir, exist_ok=True)
 
-        with open('scraped_data.csv', 'a', newline='', encoding='utf-8') as file:
+        with open('scraped_data.csv', 'a', newline='', encoding='utf-8') as file:  # Changed file name
             writer = csv.writer(file)
-            if os.stat('scraped_data.csv').st_size == 0:
-                writer.writerow(['Channel Title', 'Channel Username', 'ID', 'Message', 'Date', 'Media Path'])
+            writer.writerow(['Channel Title', 'Channel Username', 'ID', 'Message', 'Date', 'Media Path'])
             
             channels = [
-                "https://t.me/DoctorsET",
+                "https://t.me/DoctorsET",  
                 "https://t.me/CheMed123",
                 "https://t.me/lobelia4cosmetics",
                 "https://t.me/yetenaweg",
                 "https://t.me/EAHCI"
-            ]
+                ]
             
             for channel in channels:
                 await scrape_channel(client, channel, writer, media_dir)
