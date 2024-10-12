@@ -1,111 +1,104 @@
-import logging
-from telethon import TelegramClient
-import csv
 import os
 import json
+from telethon.sync import TelegramClient
+from telethon.tl.types import InputMessagesFilterPhotos
+from datetime import datetime, timezone
+from loguru import logger
 from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Configuration
+api_id = os.getenv('API_ID')
+api_hash = os.getenv('API_HASH')
+phone = os.getenv('PHONE')
+
+# Define the channels for data collection and image scraping
+data_channels = [
+    'DoctorsET',
+    'EAHCI',
+    'yetenaweg'
+]
+
+image_channels = [
+    'CheMed123',
+    'lobelia4cosmetics'
+]
+
+# Directory to save collected data and images
+DATA_DIR = 'data/raw'
+IMAGE_DIR = os.path.join(DATA_DIR, 'telegram_images')
+
+# Create directories if they don't exist
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(IMAGE_DIR, exist_ok=True)
+
 # Set up logging
-logging.basicConfig(
-    filename='scraping.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logger.add("logs/app.log", rotation="1 MB")
 
-# Load environment variables once
-load_dotenv('.env')
-api_id = os.getenv('TG_API_ID')
-api_hash = os.getenv('TG_API_HASH')
-phone = os.getenv('PHONE')  
+# Connect to Telegram
+client = TelegramClient('session_name', api_id, api_hash)
 
-# Function to get the last processed message ID
-def get_last_processed_id(channel_username):
-    try:
-        with open(f"{channel_username}_last_id.json", 'r') as f:
-            return json.load(f).get('last_id', 0)
-    except FileNotFoundError:
-        logging.warning(f"No last ID file found for {channel_username}. Starting from 0.")
-        return 0
+# Helper function to make data JSON-serializable
+def make_json_serializable(data):
+    if isinstance(data, bytes):
+        return data.decode('utf-8', errors='ignore')
+    elif isinstance(data, datetime):
+        return data.isoformat()
+    elif isinstance(data, dict):
+        return {k: make_json_serializable(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [make_json_serializable(v) for v in data]
+    else:
+        return data
 
-# Function to save the last processed message ID
-def save_last_processed_id(channel_username, last_id):
-    with open(f"{channel_username}_last_id.json", 'w') as f:
-        json.dump({'last_id': last_id}, f)
-        logging.info(f"Saved last processed ID {last_id} for {channel_username}.")
+# Function to collect data
+async def collect_data(channel):
+    messages = await client.get_messages(channel)
+    data = []
+    for message in messages:
+        msg_dict = message.to_dict()
+        msg_dict = make_json_serializable(msg_dict)
+        data.append(msg_dict)
+    return data
 
-# Function to scrape data 
-async def scrape_channel(client, channel_username, writer, media_dir):
-    try:
-        entity = await client.get_entity(channel_username)
-        channel_title = entity.title
+# Function to save data
+def save_data(data, path):
+    with open(path, 'w') as f:
+        json.dump(data, f, default=str)
+    logger.info(f"Saved data to {path}")
+
+# Function to download images
+async def download_images(channel, start_date=None, end_date=None):
+    channel_image_dir = os.path.join(IMAGE_DIR, channel)
+    os.makedirs(channel_image_dir, exist_ok=True)
+    
+    async for message in client.iter_messages(channel, filter=InputMessagesFilterPhotos):
+        message_date = message.date.replace(tzinfo=timezone.utc)  # Make message date timezone aware
+        if (start_date and message_date < start_date) or (end_date and message_date > end_date):
+            continue
+        # Download the photo
+        await client.download_media(message.photo, file=os.path.join(channel_image_dir, f'{message.id}.jpg'))
+    logger.info(f"Downloaded images from {channel}")
+
+def main():
+    with client:
+        # Data collection
+        for channel in data_channels:
+            logger.info(f"Collecting data from {channel}")
+            data = client.loop.run_until_complete(collect_data(channel))
+            data_path = os.path.join(DATA_DIR, f"{channel}.json")
+            save_data(data, data_path)
         
-        last_id = get_last_processed_id(channel_username)
-        
-        message_count = 0
-        async for message in client.iter_messages(entity):
-            if message.id <= last_id:
-                continue
-            
-            media_path = None
-            if message.media:
-                filename = (
-                    f"{channel_username}_{message.id}.{message.media.document.mime_type.split('/')[-1]}"
-                    if hasattr(message.media, 'document') 
-                    else f"{channel_username}_{message.id}.jpg"
-                )
-                media_path = os.path.join(media_dir, filename)
-                await client.download_media(message.media, media_path)
-                logging.info(f"Downloaded media for message ID {message.id}.")
-            
-            writer.writerow([channel_title, channel_username, message.id, message.message, message.date, media_path])
-            logging.info(f"Processed message ID {message.id} from {channel_username}.")
-            
-            last_id = message.id
-            message_count += 1
-            
-            # Stop after scraping 1000 messages
-            if message_count >= 1000:
-                break
-
-        save_last_processed_id(channel_username, last_id)
-
-        if message_count == 0:
-            logging.info(f"No new messages found for {channel_username}.")
-
-    except Exception as e:
-        logging.error(f"Error while scraping {channel_username}: {e}")
-
-# Initialize the client once with a session file
-client = TelegramClient('scraping_session', api_id, api_hash)
-
-async def main():
-    try:
-        await client.start(phone)
-        logging.info("Client started successfully.")
-        
-        media_dir = 'photos'
-        os.makedirs(media_dir, exist_ok=True)
-
-        with open('scraped_data.csv', 'a', newline='', encoding='utf-8') as file:
-            writer = csv.writer(file)
-            if os.stat('scraped_data.csv').st_size == 0:
-                writer.writerow(['Channel Title', 'Channel Username', 'ID', 'Message', 'Date', 'Media Path'])
-            
-            channels = [
-                "https://t.me/DoctorsET",
-                "https://t.me/CheMed123",
-                "https://t.me/lobelia4cosmetics",
-                "https://t.me/yetenaweg",
-                "https://t.me/EAHCI"
-            ]
-            
-            for channel in channels:
-                await scrape_channel(client, channel, writer, media_dir)
-                logging.info(f"Scraped data from {channel}.")
-
-    except Exception as e:
-        logging.error(f"Error in main function: {e}")
+        # Image scraping
+        for channel in image_channels:
+            logger.info(f"Downloading images from {channel}")
+            client.loop.run_until_complete(download_images(
+                channel, 
+                start_date=datetime(2022, 5, 1, tzinfo=timezone.utc), 
+                end_date=datetime(2024, 6, 10, tzinfo=timezone.utc)
+            ))
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()

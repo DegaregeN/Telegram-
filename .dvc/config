@@ -1,0 +1,4 @@
+[core]
+    remote = localstorage
+['remote "localstorage"']
+    url = C:/Users/1221/Desktop/Acadamy AIM 2/Telegram
