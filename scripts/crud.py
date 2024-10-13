@@ -1,14 +1,14 @@
 from sqlalchemy.orm import Session
-import modelss, schemas
+import models, schemas
 
 def get_detection_result(db: Session, detection_id: int):
-    return db.query(modelss.DetectionResult).filter(modelss.DetectionResult.id == detection_id).first()
+    return db.query(models.DetectionResult).filter(models.DetectionResult.id == detection_id).first()
 
 def get_detection_results(db: Session, skip: int = 0):
-    return db.query(modelss.DetectionResult).offset(skip).all()
+    return db.query(models.DetectionResult).offset(skip).all()
 
 def create_detection_result(db: Session, detection: schemas.DetectionResultCreate):
-    db_detection = modelss.DetectionResult(**detection.dict())
+    db_detection = models.DetectionResult(**detection.dict())
     db.add(db_detection)
     db.commit()
     db.refresh(db_detection)

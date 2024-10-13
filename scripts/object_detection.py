@@ -52,7 +52,8 @@ from pathlib import Path
 model = torch.hub.load("ultralytics/yolov5", "yolov5s")  # or yolov5n - yolov5x6, custom
 
 # Path to the folders
-folders = ["/home/yadasa/Desktop/ethio-medical-business-data-warehouse/data/raw/telegram_images/lobelia4cosmetics", "/home/yadasa/Desktop/ethio-medical-business-data-warehouse/data/raw/telegram_images/CheMed123"]
+folders = ["..\\data\\raw\\telegram_images\\lobelia4cosmetics", 
+           "..\\data\\raw\\telegram_images\\CheMed123"]
 base_path = "yolov5/data/telegram_images"
 
 for folder in folders:

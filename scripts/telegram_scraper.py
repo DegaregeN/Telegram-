@@ -97,7 +97,7 @@ def main():
             client.loop.run_until_complete(download_images(
                 channel, 
                 start_date=datetime(2022, 5, 1, tzinfo=timezone.utc), 
-                end_date=datetime(2024, 6, 10, tzinfo=timezone.utc)
+                end_date=datetime(2024, 10, 10, tzinfo=timezone.utc)
             ))
 
 if __name__ == "__main__":
