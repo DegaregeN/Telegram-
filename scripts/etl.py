@@ -54,7 +54,8 @@ def process_detection_files(directory, db):
 
 def main():
     db = SessionLocal()
-    directories = ['data/detections/CheMed123', 'data/detections/lobelia4cosmetics']
+    directories = ["C:/Users/1221/Desktop/Acadamy AIM 2/Telegram-/data/detection/CheMed123", 
+                   "C:/Users/1221/Desktop/Acadamy AIM 2/Telegram-/data/detection/lobelia4cosmetics"]
 
     for directory in directories:
         process_detection_files(directory, db)
