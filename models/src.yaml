@@ -1,0 +1,30 @@
+
+version: 2
+
+sources:
+  - name: Telegram_data
+    tables:
+      - name: doctors_et_raw_data
+        description: "Raw data from DoctorsET JSON file"
+        loader: file
+        path: "{{ source('doctors_et', 'DoctorsET.json') }}"
+        schema: public  # Replace 'public' with your actual schema name in PostgreSQL
+        file_format: json
+
+  - name: Telegram_data
+    tables:
+      - name: eahci_raw_data
+        description: "Raw data from EAHCI JSON file"
+        loader: file
+        path: "{{ source('eahci', 'EAHCI.json') }}"
+        schema: public  # Replace 'public' with your actual schema name in PostgreSQL
+        file_format: json
+
+  - name: Telegram_data
+    tables:
+      - name: yetenaweg_raw_data
+        description: "Raw data from Yetenaweg JSON file"
+        loader: file
+        path: "{{ source('yetenaweg', 'yetenaweg.json') }}"
+        schema: public  # Replace 'public' with your actual schema name in PostgreSQL
+        file_format: json
