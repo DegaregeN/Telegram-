@@ -6,3 +6,5 @@ The objective this project is to
         Object detection using YOLO.
         Data warehouse design and implementation
         Data integration and enrichment
+
+The folder structure of the project
