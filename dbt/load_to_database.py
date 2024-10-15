@@ -4,7 +4,7 @@ import json
 import os
 
 # Database connection
-engine = create_engine('postgresql://postgres:Dna%40607625@localhost:5432/Telegram_data')
+engine = create_engine('postgresql://postgres:passward@localhost:5432/Telegram_data')
 
 # Print the current working directory
 print("Current working directory:", os.getcwd())
